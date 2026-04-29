@@ -208,12 +208,12 @@ async def generate_audio(client, nb_id: str, output_dir: Path, slug: str):
     return output
 
 
-async def generate_video(client, nb_id: str, output_dir: Path, slug: str):
+async def generate_video(client, nb_id: str, output_dir: Path, slug: str, language: str = "zh"):
     """Generate video."""
-    print(f"  Generating video (2-5 min)...")
+    print(f"  Generating video (2-5 min, language={language})...")
     try:
         status = await asyncio.wait_for(
-            client.artifacts.generate_video(nb_id),
+            client.artifacts.generate_video(nb_id, language=language),
             timeout=ARTIFACT_CREATE_TIMEOUT,
         )
         await wait_for_completion_resilient(client, nb_id, status.task_id, VIDEO_TIMEOUT, "video")
@@ -322,7 +322,7 @@ async def process_file(
         "slides": lambda c, n, o, s: generate_slides(c, n, o, s, slide_language),
         "infographic": lambda c, n, o, s: generate_infographic(c, n, o, s, slide_language),
         "audio": generate_audio,
-        "video": generate_video,
+        "video": lambda c, n, o, s: generate_video(c, n, o, s, slide_language),
     }
 
     for t in types_to_run:
