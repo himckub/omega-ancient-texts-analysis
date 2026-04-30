@@ -18,20 +18,31 @@ Level 3 ─── 76 支 Category 类别视频
              │   每部经典拆成 8-12 个主题类别
              │   例: 道德经 "道体与不可名状" / 易经 "创生与纯态"
              │
-Level 4 ─── 145+ 支 Per-Unit 逐卦/逐章视频
-                 易经 64 卦 · 道德经 81 章（持续生成中）
+Level 4 ─── 71/145 支 Per-Unit 逐卦/逐章视频
+                 易经 64/64 完成 · 道德经 7/81 完成（08-81 待生成）
 ```
 
 ### 每层的用途
 
-| Level | 内容 | 视频数 | 时长 | 适合平台 | 发布频率 |
-|:---:|---|---:|---|---|---|
-| 1 | Master 旗舰 | 7 | 3-5 min | YouTube 长视频、LinkedIn、公众号 | 每部经典 1 支，首发用 |
-| 2 | Synthesis 综合 | 10 | 2-4 min | X/Twitter、知乎、YouTube | 每周 2-3 支 |
-| 3 | Category 类别 | 76 | 2-3 min | X/Twitter、抖音、小红书 | 每天 1-2 支 |
-| 4 | Per-Unit 逐卦/章 | 145+ | 1-2 min | 抖音、小红书、Shorts | 批量发，冲量 |
+| Level | 内容 | 视频数 | Status |
+|:---:|---|---:|---|
+| 1 | Master 旗舰 | 7 | ✅ 全部完成 |
+| 2 | Synthesis 综合 | 9/10 | 缺 synthesis_02 |
+| 3 | Category 类别 | 49/76 | 部分完成 |
+| 4 | Per-Unit 逐卦/章 | 71/145 | 易经完成, 道德经进行中 |
+
+当前视频状态:
+- 易经: 64/64 videos complete (all NotebookLM native, Chinese)
+- 道德经: 7/81 chapters have video (08-81 pending generation)
+- Categories: 49 videos across 6 books
+- Synthesis: 9/10 videos (missing synthesis_02)
+- Masters: 7/7 complete
+- Papers: 11 videos
+- Total: 147 videos, 136 ready for publishing
 
 ## 宣发策略建议
+
+> ⚠️ 中英文区分: registry 每条有 `language` 字段 (`zh`/`en`)。发布中文平台（抖音/小红书）时必须过滤 `language == "zh"`，避免发出英文视频。几何原本和论文概览是英文内容。
 
 ### 第一周: 旗舰首发
 
@@ -68,7 +79,7 @@ Day 7:  论文总览 Master + "9 篇论文从一个方程推演" 文案
 | Release Tag | 内容 | Assets |
 |---|---|---:|
 | `cultural-media-v1` | 文化视频 + synthesis + category + per-unit | 176+ |
-| `papers-media-v1` | 9 篇论文视频 + slides | 19 |
+| `papers-media-v1` | 11 支论文视频 + slides | 19 |
 | `master-videos-v1` | 7 支旗舰 master 视频 | 13 |
 
 ### API 获取 asset 列表
@@ -235,12 +246,83 @@ gh api repos/the-omega-institute/Omega-paper-series/releases/tags/cultural-media
 2. 上传到 NotebookLM → tools/notebooklm_batch.py
 3. NotebookLM 后台生成视频 (3-5 min)
 4. sync_artifacts.sh 下载到本地 → workspace/artifacts/
+4.5. build_covers.py 生成 4:3 + 3:4 封面
+4.6. build_publish_registry.py 更新 publish_registry.json
 5. upload_to_github_release.py 上传到 GitHub Release
 6. ← Ada n8n 轮询检测到新 asset
 7. ← n8n 提取文案 + 发布到社交平台
 ```
 
 **步骤 1-5 已自动化。** 步骤 6-7 需要 Ada 的 n8n 工作流对接。
+
+## 本地内容管线 (Stage 5)
+
+### publish_registry.json — 统一对接接口
+
+所有可发布内容的索引文件，位于 `workspace/publish_registry.json`。
+
+每条记录包含:
+```json
+{
+  "id": "hexagram-01-qian",
+  "book": "易经",
+  "book_en": "I Ching",
+  "sequence": 1,
+  "title_zh": "第一卦 乾",
+  "title_en": "Hexagram 01: Qian",
+  "language": "zh",
+  "type": "chapter",
+  "video": "artifacts/易经/hexagram-01-qian/hexagram-01-qian_video.mp4",
+  "article": "易经/hexagrams/all/hexagram-01-qian.md",
+  "slides": "artifacts/易经/hexagram-01-qian/hexagram-01-qian_slides.pdf",
+  "cover_4x3": "artifacts/易经/hexagram-01-qian/hexagram-01-qian_cover_4x3.png",
+  "cover_3x4": "artifacts/易经/hexagram-01-qian/hexagram-01-qian_cover_3x4.png",
+  "ready": true
+}
+```
+
+**Lydia 的脚本直接读这一个文件:**
+```python
+import json
+reg = json.load(open('workspace/publish_registry.json'))
+queue = sorted(
+    [e for e in reg if e['book'] == '易经' and e['language'] == 'zh' and e['ready']],
+    key=lambda x: x['sequence']
+)
+```
+
+### 封面
+
+每个视频同时生成两张封面（适配抖音双比例要求）:
+- `{name}_cover_4x3.png` (1200×900 横版)
+- `{name}_cover_3x4.png` (900×1200 竖版)
+
+生成工具: `python3 tools/build_covers.py`
+
+### 目录结构
+
+```
+workspace/artifacts/
+├── 易经/hexagram-01-qian/      ← 64 卦
+├── 道德经/daodejing_chapter-01/ ← 81 章
+├── categories/<book>/           ← 66 个跨章类别分析
+├── synthesis/                   ← 10 个跨书综合
+├── masters/                     ← 7 个旗舰视频
+└── papers/                      ← 11 个论文视频
+```
+
+### 批量生成工具
+
+```bash
+# 并行触发 NotebookLM 生成（火后即忘，不等完成）
+python3 tools/notebooklm_parallel.py --book 易经 --parallel 5
+
+# 30-60 分钟后恢复下载已完成的视频
+python3 tools/notebooklm_parallel.py --recover
+
+# 全量音轨校验
+python3 tools/validate_media.py
+```
 
 ## 联系方式
 
