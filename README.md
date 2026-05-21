@@ -1,12 +1,12 @@
 # Omega Ancient Texts Analysis
 
-> 用 Omega 形式数学翻译古典经典 — 每一卦/章对应一个 Lean 4 定理、一支 NotebookLM 视频、一个落地页
+> 用 Omega 形式数学翻译古典经典 — 每一卦/章对应一个 Lean 4 定理、一支多媒体内容、一个可发布素材单元
 
-> **Broadcast role**: ancient-texts content sink in the 4-piece Omega broadcast architecture. Outputs from `../omega-broadcast-local/` for classical-text publishing land in [`workspace/broadcast_exports/`](workspace/broadcast_exports/). See [`docs/distribution/README.md`](docs/distribution/README.md).
+> **Broadcast role**: 古典文献内容源与发布看板。本仓库沉淀文本、结构映射、生成稿、媒体素材和 release 产物；自动化发布能力由 [`broadcast-kit`](https://github.com/ChronoAIProject/broadcast-kit) 与本地运营 harness 承接。
 
 ## 这个项目在做什么
 
-把 [automath](https://github.com/the-omega-institute/automath) 自动发现的形式化数学结果（10K+ Lean 4 定理）逐条对应到《易经》《道德经》《黄帝内经》《孙子兵法》《几何原本》《庄子》六部经典上，然后通过 NotebookLM + SlideSync 自动产出双语视频/slides/封面，最后接 Ada n8n 工作流分发到社交平台。
+把 [automath](https://github.com/the-omega-institute/automath) 自动发现的形式化数学结果（10K+ Lean 4 定理）逐条对应到《易经》《道德经》《黄帝内经》《孙子兵法》《几何原本》《庄子》六部经典上，然后通过 NotebookLM、SlideSync 和新的可控视频生成路径产出双语视频、slides、音频与封面，并接入自动化发布流程。
 
 **核心主张**: 我们区分"形式映射"和"隐喻类比"。每个映射都引用具体的 Lean 4 定理名，可追溯到 automath 仓库里的证明。
 
@@ -72,8 +72,8 @@ Level 3  Category 类别视频 (66 篇 cultural essay × 视频)
 Level 4  Per-Unit 逐卦/逐章 (易经 64 卦 + 道德经 81 章 = 145 篇)
 ```
 
-**宣发策略**: Master 首发 → Synthesis 次发 → Category 日常 → Per-Unit 冲量
-**对接细节**（Ada / n8n / API endpoint / 文案模板）见 [AGENT_INTEGRATION.md](AGENT_INTEGRATION.md)。
+**宣发策略**: Master 首发 → Synthesis 次发 → Category 日常 → Per-Unit 稳定日更。
+自动化发布的通用能力由 [`broadcast-kit`](https://github.com/ChronoAIProject/broadcast-kit) 承接；Omega 账号体系的本地队列、证据和反馈闭环在本地运营 harness 中维护。
 
 ## 产出在哪里
 
@@ -89,7 +89,7 @@ workspace/
 │   ├── masters/                                          7 支旗舰
 │   ├── synthesis/                                        10 支综合
 │   └── releases/<release-tag>/                           release 打包暂存区
-├── publish_registry.json                                 Lydia / Ada 唯一对接接口
+├── publish_registry.json                                 自动化发布与媒体索引接口
 texts/                                                    古典原文语料库
 tools/                                                    自动化脚本（31 个，按 8 类组织，见下）
 ```
@@ -161,7 +161,7 @@ Release 智能路由
     │
     ▼  publish_registry.json（统一接口）
     │
-Ada n8n 工作流 → 社交平台分发
+自动化发布流程 → 社交平台分发与反馈采集
 ```
 
 ## 工具列表（31 Python 脚本 + 2 shell，按 8 类）
@@ -272,6 +272,7 @@ bash tools/sync_artifacts.sh
 |---|---|
 | [automath](https://github.com/the-omega-institute/automath) | Omega 数学发现引擎 — 10K+ Lean 4 定理 |
 | [Omega-paper-series](https://github.com/the-omega-institute/Omega-paper-series) | 统一展示站点 — 论文 + 文化解读 + 视频 |
+| [broadcast-kit](https://github.com/ChronoAIProject/broadcast-kit) | 通用自动化发布工具包 — 登录一次后复用平台发布、指标采集和反馈整理能力 |
 | [SlideSync](../SlideSync) | audio + slides PDF → 视频合成（本仓库的下游工具） |
 
 ## License
