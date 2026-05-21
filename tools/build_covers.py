@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import site
+import subprocess
+import tempfile
 import sys
 from pathlib import Path
 
@@ -68,7 +70,13 @@ def discover_artifact_dirs(dir_arg: Path | None) -> list[Path]:
         return [resolve_artifact_dir(dir_arg)]
     if not ARTIFACTS_DIR.exists():
         return []
-    return sorted(path for path in ARTIFACTS_DIR.iterdir() if path.is_dir())
+    artifact_dirs: list[Path] = []
+    for path in ARTIFACTS_DIR.rglob("*"):
+        if not path.is_dir():
+            continue
+        if any(path.glob("*_slides.pdf")) or any(path.glob("*_video.mp4")):
+            artifact_dirs.append(path)
+    return sorted(artifact_dirs)
 
 
 def find_slides_pdf(artifact_dir: Path) -> Path | None:
@@ -93,6 +101,37 @@ def render_first_page(slides_pdf: Path) -> Image.Image:
         return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
     finally:
         doc.close()
+
+
+def render_video_frame(video_path: Path, seconds: float = 0.2) -> Image.Image | None:
+    """Render a single video frame as a PIL image."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = Path(tmpdir) / "frame.jpg"
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            str(seconds),
+            "-i",
+            str(video_path),
+            "-frames:v",
+            "1",
+            str(out),
+        ]
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+
+        if result.returncode != 0 or not out.is_file():
+            return None
+        return Image.open(out).convert("RGB")
 
 
 def aspect_ratio(size: tuple[int, int]) -> float:
@@ -203,6 +242,30 @@ def save_covers(artifact_dir: Path, slides_pdf: Path) -> None:
         image.save(outputs[label], format="PNG", optimize=True)
 
 
+def ensure_covers(artifact_dir: Path, force: bool = False) -> bool:
+    """Generate or ensure 4:3 and 3:4 covers for a single artifact directory."""
+    slides_pdf = find_slides_pdf(artifact_dir)
+    video_path = artifact_dir / f"{artifact_dir.name}_video.mp4"
+    if slides_pdf is None and not video_path.is_file():
+        return False
+
+    if slides_pdf is not None:
+        source = render_first_page(slides_pdf)
+        base_name = slides_pdf.stem.removesuffix("_slides")
+    else:
+        source = render_video_frame(video_path)
+        if source is None:
+            return False
+        base_name = video_path.stem.removesuffix("_video")
+    outputs = cover_paths(artifact_dir, base_name)
+    if not force and all(path.exists() for path in outputs.values()):
+        return True
+    for label, size in TARGET_SPECS.items():
+        image = build_cover_image(source, size)
+        image.save(outputs[label], format="PNG", optimize=True)
+    return True
+
+
 def main() -> None:
     args = parse_args()
     try:
@@ -211,13 +274,14 @@ def main() -> None:
         print(f"Error: {exc}")
         raise SystemExit(1) from exc
 
-    candidates: list[tuple[Path, Path]] = []
+    candidates: list[tuple[Path, Path | None]] = []
     for artifact_dir in artifact_dirs:
         slides_pdf = find_slides_pdf(artifact_dir)
-        if slides_pdf is not None:
+        video_path = artifact_dir / f"{artifact_dir.name}_video.mp4"
+        if slides_pdf is not None or video_path.is_file():
             candidates.append((artifact_dir, slides_pdf))
         elif args.artifact_dir is not None:
-            print(f"Skipping {artifact_dir.name}: no *_slides.pdf found")
+            print(f"Skipping {artifact_dir.name}: no *_slides.pdf or *_video.mp4 found")
 
     total = len(candidates)
     if total == 0:
@@ -229,7 +293,10 @@ def main() -> None:
     errors = 0
 
     for index, (artifact_dir, slides_pdf) in enumerate(candidates, start=1):
-        base_name = slides_pdf.stem.removesuffix("_slides")
+        if slides_pdf is not None:
+            base_name = slides_pdf.stem.removesuffix("_slides")
+        else:
+            base_name = f"{artifact_dir.name}"
         outputs = cover_paths(artifact_dir, base_name)
 
         if not args.force and all(path.exists() for path in outputs.values()):
@@ -238,14 +305,16 @@ def main() -> None:
             continue
 
         try:
-            save_covers(artifact_dir, slides_pdf)
+            if ensure_covers(artifact_dir, force=args.force):
+                generated += 1
+                print(f"Generated covers for {artifact_dir.name} ({index}/{total})")
+            else:
+                errors += 1
+                print(f"Error processing {artifact_dir.name} ({index}/{total}): no source media found")
         except Exception as exc:  # noqa: BLE001
             errors += 1
             print(f"Error processing {artifact_dir.name} ({index}/{total}): {exc}")
             continue
-
-        generated += 1
-        print(f"Generated covers for {artifact_dir.name} ({index}/{total})")
 
     print(f"Generated covers for {generated} artifacts, skipped {skipped_existing} (already exist)")
     if errors:

@@ -191,11 +191,17 @@ async def generate_infographic(client, nb_id: str, output_dir: Path, slug: str, 
     return output
 
 
-async def generate_audio(client, nb_id: str, output_dir: Path, slug: str):
+def resolve_audio_language(language_profile: str) -> str:
+    if language_profile == "en":
+        return "en"
+    return "zh_Hans"
+
+
+async def generate_audio(client, nb_id: str, output_dir: Path, slug: str, audio_language: str):
     """Generate audio overview."""
-    print(f"  Generating audio (1-3 min)...")
+    print(f"  Generating audio (1-3 min, language={audio_language})...")
     status = await asyncio.wait_for(
-        client.artifacts.generate_audio(nb_id),
+        client.artifacts.generate_audio(nb_id, language=audio_language),
         timeout=ARTIFACT_CREATE_TIMEOUT,
     )
     await wait_for_completion_resilient(client, nb_id, status.task_id, AUDIO_TIMEOUT, "audio")
@@ -256,6 +262,32 @@ def load_manifest(manifest_path: Path) -> dict:
         return {}
 
 
+def resolve_output_dir(filepath: Path, slug: str) -> Path:
+    candidates = [
+        path
+        for path in ARTIFACTS_DIR.rglob(slug)
+        if path.is_dir() and "releases" not in path.parts
+    ]
+    if not candidates:
+        return ARTIFACTS_DIR / slug
+
+    normalized_source = str(filepath.resolve())
+    for candidate in sorted(candidates):
+        manifest = load_manifest(candidate / "manifest.json")
+        source_ref = manifest.get("source_article") or manifest.get("source")
+        if not source_ref:
+            continue
+        candidate_source = Path(str(source_ref))
+        if not candidate_source.is_absolute():
+            candidate_source = (Path(__file__).resolve().parent.parent / candidate_source).resolve()
+        else:
+            candidate_source = candidate_source.resolve()
+        if str(candidate_source) == normalized_source:
+            return candidate
+
+    return sorted(candidates)[0]
+
+
 async def resolve_notebook_id(
     client,
     filepath: Path,
@@ -294,17 +326,12 @@ async def process_file(
 ):
     """Process a single file through NotebookLM."""
     slug = normalize_slug(filepath.stem)
-    # After restructure_artifacts.py, artifact dirs live under per-book
-    # subdirectories (e.g. artifacts/易经/hexagram-01-qian/).
-    # Search for existing dir first; fall back to flat ARTIFACTS_DIR.
-    existing = list(ARTIFACTS_DIR.rglob(slug))
-    existing_dirs = [p for p in existing if p.is_dir()]
-    if existing_dirs:
-        output_dir = existing_dirs[0]
-    else:
-        output_dir = ARTIFACTS_DIR / slug
+    # Prefer canonical artifact dirs and never write regenerated media into
+    # release staging folders under artifacts/releases/.
+    output_dir = resolve_output_dir(filepath, slug)
     output_dir.mkdir(parents=True, exist_ok=True)
     slide_language = "en" if language_profile == "en" else "zh"
+    audio_language = resolve_audio_language(language_profile)
     types_to_run = resolve_types(gen_type, gen_types)
 
     print(f"\n{'='*60}")
@@ -321,7 +348,7 @@ async def process_file(
     generators = {
         "slides": lambda c, n, o, s: generate_slides(c, n, o, s, slide_language),
         "infographic": lambda c, n, o, s: generate_infographic(c, n, o, s, slide_language),
-        "audio": generate_audio,
+        "audio": lambda c, n, o, s: generate_audio(c, n, o, s, audio_language),
         "video": lambda c, n, o, s: generate_video(c, n, o, s, slide_language),
     }
 

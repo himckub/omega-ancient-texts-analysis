@@ -43,7 +43,10 @@ async def dl():
                 except: pass
         print(f'  Downloaded: {count} new')
 asyncio.run(dl())
-" 2>&1
+    " 2>&1
+
+    # Ensure covers are generated for recovered artifacts.
+    "$VENV" tools/build_covers.py 2>&1 | sed -n '1,40p'
 
     # Upload to GitHub release
     echo "  Uploading to release..."

@@ -22,3 +22,36 @@ workspace/.events.lock
 workspace/.dispatch_log.lock
 workspace/publication_state/
 workspace/validation_report.json
+
+# Local media/release staging and operator reports
+workspace/artifacts/releases/
+workspace/reports/
+workspace/broadcast_exports/**/*.mp4
+workspace/broadcast_exports/**/*.wav
+workspace/broadcast_exports/**/*.mp3
+workspace/broadcast_exports/**/*.m4a
+workspace/broadcast_exports/**/*.log
+workspace/broadcast_exports/**/*_runtime.*
+workspace/broadcast_exports/**/*_evidence.*
+workspace/broadcast_exports/post-mortems/*
+!workspace/broadcast_exports/post-mortems/.keep
+workspace/broadcast_exports/ab-tests/*
+!workspace/broadcast_exports/ab-tests/.keep
+workspace/broadcast_exports/**/*_postmortem.*
+workspace/broadcast_exports/**/*_retrospective.*
+workspace/publish_handoff_manifest*.json
+workspace/*handoff_manifest*.json
+
+# Generated cover/media previews; source media lives in releases or external sinks
+workspace/artifacts/**/*_cover_3x4.png
+workspace/artifacts/**/*_cover_4x3.png
+workspace/artifacts/**/*_cover_3_4.png
+workspace/artifacts/**/*_cover_4_3.png
+workspace/artifacts/**/*_frame.png
+
+# Runtime logs and local worker state
+*.log
+*.jsonl.tmp
+*.lock
+*_events.jsonl
+*_worker_state.json

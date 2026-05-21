@@ -107,7 +107,7 @@ def generate_audio_via_notebooklm(source_md: Path, language: str = "zh") -> bool
         print(f"    SKIP audio gen: {NOTEBOOKLM_PYTHON} not found")
         return False
 
-    lang_profile = "zh_primary_bilingual" if language == "zh" else "en"
+    lang_profile = "zh" if language == "zh" else "en"
     result = subprocess.run(
         [str(NOTEBOOKLM_PYTHON), str(BATCH_SCRIPT),
          "--input", str(source_md),
