@@ -1,0 +1,27 @@
+schema_version: omega.source_descriptor.v0
+source_id: omega-ancient-texts-analysis
+source_type: ancient_texts
+local_broadcast_harness: ../omega-broadcast-local
+default_export_dir: workspace/broadcast_exports
+default_campaigns:
+  - omega-classics
+  - yijing
+  - daodejing
+  - traditional-literature
+
+responsibilities:
+  owns:
+    - traditional literature and ancient-text source material
+    - Yijing, Daodejing, and related generated media outputs
+    - ancient-text captions or scripts that are durable content assets
+    - ancient-text distribution summaries
+    - ancient-text retrospectives
+  does_not_own:
+    - platform auth state
+    - raw creator backend screenshots
+    - global multi-account publish queue
+    - reusable publishing toolkit code
+
+related_repos:
+  broadcast_kit: ../broadcast-kit
+  paper_series: ../Omega-paper-series
